@@ -1,5 +1,7 @@
 # motion-promo
 
+[![ci](https://github.com/dranshrad/motion-promo/actions/workflows/ci.yml/badge.svg)](https://github.com/dranshrad/motion-promo/actions/workflows/ci.yml)
+
 An agent skill that turns a product's landing page and real assets into a short motion-graphics
 video ad: 6–30 s MP4s for Meta feed (4:5), Stories, Reels and TikTok (9:16), square (1:1) and
 16:9. Every frame is rendered deterministically, so output is identical on any machine.
