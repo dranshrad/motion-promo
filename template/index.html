@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- motion-promo composition page. Do not edit for normal use: all product content lives in
+     promo.config.js (or the file passed with ?config=). MIT License,
+     Copyright (c) 2026 motion-promo contributors. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>motion-promo preview</title>
+  <link rel="stylesheet" href="promo.css">
+</head>
+<body>
+  <div id="viewport"><div id="stage"></div></div>
+  <div id="preview-ui" hidden>
+    <div class="bar">
+      <button type="button" data-play>Pause</button>
+      <input type="range" min="0" max="1" step="0.001" value="0" aria-label="Scrub">
+      <span data-time>0.00 s</span>
+      <span data-issues title="Show issues">…</span>
+    </div>
+    <ul data-list hidden></ul>
+  </div>
+  <script src="engine.js"></script>
+  <script src="scenes.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

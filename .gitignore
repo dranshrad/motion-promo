@@ -1,0 +1,8 @@
+node_modules/
+browsers/
+.browser-path
+.DS_Store
+# local renders and scratch projects
+out/
+stills/
+*.mp4

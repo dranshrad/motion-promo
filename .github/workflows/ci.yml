@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: brew install ffmpeg
+      - run: npm ci
+        working-directory: scripts
+      - run: node doctor.mjs
+        working-directory: scripts
+      - run: npm test
+        working-directory: scripts
+
+  # A headless Linux server with NO Chrome: every account gets the skill,
+  # sharing one npm install and one Playwright Chromium.
+  all-users-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Simulate a server without Chrome
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg rsync
+          sudo apt-get remove -y -qq google-chrome-stable || true
+          sudo rm -f /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium /usr/bin/chromium-browser
+          ! command -v google-chrome
+      - name: Create two accounts
+        run: |
+          sudo useradd -m -s /bin/bash alice
+          sudo useradd -m -s /bin/bash bob
+      - name: Install for every user (the documented command)
+        run: sudo env "PATH=$PATH" bash install.sh --all-users --with-chromium --with-deps
+      - name: Each account has a working copy and renders a still
+        run: |
+          set -e
+          for u in alice bob root; do
+            h=$(getent passwd "$u" | cut -d: -f6)
+            for b in .claude .agents; do sudo test -f "$h/$b/skills/motion-promo/SKILL.md"; done
+            sudo test -L "$h/.claude/skills/motion-promo/scripts/node_modules"
+            if [ "$u" = root ]; then run="sudo env PATH=$PATH HOME=$h"; else run="sudo -u $u env PATH=$PATH HOME=$h"; fi
+            $run bash -c "cd $h && node $h/.claude/skills/motion-promo/scripts/init.mjs $h/promo-test && node $h/.claude/skills/motion-promo/scripts/render.mjs $h/promo-test --stills 1,8 --quiet"
+            sudo test -f "$h/promo-test/stills/contact-sheet.png"
+            [ "$(sudo stat -c %U "$h/.claude/skills/motion-promo/SKILL.md")" = "$u" ]
+            echo "ok: $u"
+          done
+      - name: New accounts inherit it from /etc/skel
+        run: |
+          sudo useradd -m -s /bin/bash carol
+          sudo -u carol test -f /home/carol/.claude/skills/motion-promo/SKILL.md
+          sudo -u carol env PATH=$PATH HOME=/home/carol node /home/carol/.claude/skills/motion-promo/scripts/doctor.mjs
+      - name: Full test suite on Linux
+        run: |
+          sudo chown -R "$(id -u)" /opt/motion-promo
+          cd /opt/motion-promo/scripts && npm test
+      - name: Uninstall removes only motion-promo
+        run: |
+          sudo env "PATH=$PATH" bash install-all-users.sh --uninstall
+          ! sudo test -e /home/alice/.claude/skills/motion-promo
+          sudo test -d /home/alice/.claude/skills
