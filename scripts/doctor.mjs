@@ -81,7 +81,8 @@ async function main() {
       if (!a1.equals(b1) && a1.equals(a2) && moved) ok('render: 3D transform + seek', 'frames change with t and repeat exactly');
       else bad('render: 3D transform + seek', `changed=${!a1.equals(b1)} repeat=${a1.equals(a2)} moved=${moved}`, 'update Chrome/Chromium; on Linux install system libs (install.sh --with-deps)');
     } catch (e) {
-      if (e instanceof UserError) bad('browser launch', e.message.split('\n')[0], e.fix || BROWSER_FIX);
+      // Keep the per-browser reasons: the first line alone does not say why a launch failed.
+      if (e instanceof UserError) bad('browser launch', e.message.split('\n').slice(0, 14).join('\n        '), e.fix || BROWSER_FIX);
       else bad('browser launch', String(e.message || e).split('\n')[0], BROWSER_FIX);
     } finally {
       if (browser) await browser.close().catch(() => {});

@@ -44,6 +44,12 @@ jobs:
           sudo useradd -m -s /bin/bash bob
       - name: Install for every user (the documented command)
         run: sudo env "PATH=$PATH" bash install.sh --all-users --with-chromium --with-deps
+      - name: Diagnose browser launch as a normal account
+        if: always()
+        run: |
+          ls -la /opt/motion-promo/browsers /opt/motion-promo/.browser-path || true
+          sudo -u alice env PATH=$PATH HOME=/home/alice node /home/alice/.claude/skills/motion-promo/scripts/doctor.mjs || true
+          sudo -u alice env PATH=$PATH HOME=/home/alice "$(cat /opt/motion-promo/.browser-path)" --headless=new --no-sandbox --disable-gpu --dump-dom about:blank 2>&1 | tail -15 || true
       - name: Each account has a working copy and renders a still
         run: |
           set -e
