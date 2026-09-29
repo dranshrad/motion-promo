@@ -133,22 +133,28 @@ function browserCandidates() {
     '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium', '/usr/bin/microsoft-edge',
   ];
 }
-/** Returns {path, source} of a Chromium-family browser, or null. */
-export function findBrowser(pw) {
+/**
+ * Ordered browser candidates, each {path, source}:
+ *   1. MOTION_PROMO_BROWSER / CHROME_PATH — an explicit choice, used alone (no silent fallback)
+ *   2. the shared Chromium recorded by install-all-users.sh (.browser-path) — the admin's choice
+ *   3. installed system browsers
+ *   4. this account's Playwright Chromium download
+ */
+export function findBrowsers(pw) {
   const env = process.env.MOTION_PROMO_BROWSER || process.env.CHROME_PATH;
-  if (env) return { path: env, source: 'MOTION_PROMO_BROWSER' };
-  for (const p of browserCandidates()) if (fs.existsSync(p)) return { path: p, source: 'installed' };
-  // Written by install-all-users.sh: one shared Playwright Chromium for every account.
-  try {
-    const shared = fs.readFileSync(path.join(SKILL_DIR, '.browser-path'), 'utf8').trim();
-    if (shared && fs.existsSync(shared)) return { path: shared, source: 'shared (.browser-path)' };
-  } catch { /* no shared browser recorded */ }
-  try {
-    const p = pw.chromium.executablePath();
-    if (p && fs.existsSync(p)) return { path: p, source: 'playwright' };
-  } catch { /* not downloaded */ }
-  return null;
+  if (env) return [{ path: env, source: 'MOTION_PROMO_BROWSER' }];
+  const out = [];
+  const add = (p, source) => { if (p && fs.existsSync(p) && !out.some((c) => c.path === p)) out.push({ path: p, source }); };
+  try { add(fs.readFileSync(path.join(SKILL_DIR, '.browser-path'), 'utf8').trim(), 'shared (.browser-path)'); } catch { /* none recorded */ }
+  for (const p of browserCandidates()) add(p, 'installed');
+  try { add(pw.chromium.executablePath(), 'playwright'); } catch { /* not downloaded */ }
+  return out;
 }
+/** Returns the first {path, source} candidate, or null. */
+export function findBrowser(pw) {
+  return findBrowsers(pw)[0] || null;
+}
+
 export const BROWSER_FIX =
   'install Google Chrome, or download Playwright Chromium: `cd "' + SCRIPTS_DIR + '" && npx playwright-core install chromium` ' +
   '(Linux servers also: `sudo npx playwright-core install-deps chromium`), or set MOTION_PROMO_BROWSER=/path/to/chrome.';
@@ -172,25 +178,29 @@ export const BROWSER_ARGS = [
 ];
 export async function launchBrowser() {
   const pw = loadPlaywright();
-  const found = findBrowser(pw);
-  if (!found) throw new UserError('no Chromium-family browser found.', { fix: BROWSER_FIX, code: 2 });
-  if (!fs.existsSync(found.path)) {
-    throw new UserError(`browser not found at ${found.path} (from ${found.source}).`, { fix: BROWSER_FIX, code: 2 });
-  }
+  const candidates = findBrowsers(pw);
+  if (!candidates.length) throw new UserError('no Chromium-family browser found.', { fix: BROWSER_FIX, code: 2 });
   const args = BROWSER_ARGS.slice();
   if (process.platform === 'linux' && typeof process.getuid === 'function' && process.getuid() === 0) args.push('--no-sandbox');
-  try {
-    const browser = await pw.chromium.launch({ executablePath: found.path, headless: true, args, timeout: 60000 });
-    return { browser, browserPath: found.path };
-  } catch (e) {
-    const first = String(e.message || e).split('\n').slice(0, 6).join('\n  ');
-    throw new UserError(`browser failed to launch (${found.path}):\n  ${first}`, {
-      fix: process.platform === 'linux'
-        ? 'install system libraries: `sudo npx playwright-core install-deps chromium` (in scripts/), or run install.sh --with-deps'
-        : BROWSER_FIX,
-      code: 2,
-    });
+  // A browser that is present but broken for this account (e.g. a system Edge whose crash
+  // handler cannot start) must not block the others: try each candidate in order.
+  const failures = [];
+  for (const c of candidates) {
+    if (!fs.existsSync(c.path)) { failures.push(`${c.path} (${c.source}): not found`); continue; }
+    try {
+      const browser = await pw.chromium.launch({ executablePath: c.path, headless: true, args, timeout: 60000 });
+      if (failures.length) process.stderr.write(`note: skipped ${failures.length} browser(s) that failed to launch; using ${c.path}\n`);
+      return { browser, browserPath: c.path };
+    } catch (e) {
+      failures.push(`${c.path} (${c.source}):\n    ` + String(e.message || e).split('\n').slice(0, 4).join('\n    '));
+    }
   }
+  throw new UserError(`no browser could be launched:\n  ${failures.join('\n  ')}`, {
+    fix: process.platform === 'linux'
+      ? 'install system libraries: `sudo npx playwright-core install-deps chromium` (in scripts/), or run install.sh --with-deps; or set MOTION_PROMO_BROWSER'
+      : BROWSER_FIX,
+    code: 2,
+  });
 }
 
 // ------------------------------------------------------------------ paths & names
