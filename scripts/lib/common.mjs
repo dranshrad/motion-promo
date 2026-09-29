@@ -185,6 +185,11 @@ export async function launchBrowser() {
   // A browser that is present but broken for this account (e.g. a system Edge whose crash
   // handler cannot start) must not block the others: try each candidate in order.
   const failures = [];
+  const missing = candidates.filter((c) => !fs.existsSync(c.path));
+  if (missing.length === candidates.length) {
+    const c = candidates[0];
+    throw new UserError(`browser not found at ${c.path} (from ${c.source}).`, { fix: BROWSER_FIX, code: 2 });
+  }
   for (const c of candidates) {
     if (!fs.existsSync(c.path)) { failures.push(`${c.path} (${c.source}): not found`); continue; }
     try {
