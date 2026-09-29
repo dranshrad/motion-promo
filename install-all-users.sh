@@ -157,10 +157,13 @@ for a in "${ACCOUNTS[@]}"; do
       is_ours "$d" && { doc="$d/scripts/doctor.mjs"; break; }
     done
     if [ -z "$doc" ]; then RESULTS+=("$u|not installed (skill folders taken by something else)"); continue; fi
+    # Run as the account with a clean login-style environment: variables inherited from the
+    # installing session (TMPDIR, XDG_RUNTIME_DIR, ...) point at places the account cannot write.
+    clean=(env -i HOME="$h" USER="$u" LOGNAME="$u" SHELL=/bin/sh PATH="$PATH" LANG="${LANG:-C.UTF-8}")
     if [ $IS_ROOT -eq 1 ] && [ "$u" != "root" ]; then
-      if command -v runuser >/dev/null 2>&1; then cmd=(runuser -u "$u" -- env HOME="$h" node "$doc")
-      else cmd=(sudo -u "$u" -H node "$doc"); fi
-    else cmd=(node "$doc"); fi
+      if command -v runuser >/dev/null 2>&1; then cmd=(runuser -u "$u" -- "${clean[@]}" node "$doc")
+      else cmd=(sudo -u "$u" "${clean[@]}" node "$doc"); fi
+    else cmd=("${clean[@]}" node "$doc"); fi
     if "${cmd[@]}" >/tmp/motion-promo-doctor.$$ 2>&1; then status="doctor ok"
     else status="doctor FAILED — output above"; tail -15 /tmp/motion-promo-doctor.$$ | sed 's/^/     /'; fi
     rm -f /tmp/motion-promo-doctor.$$

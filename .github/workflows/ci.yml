@@ -47,9 +47,11 @@ jobs:
       - name: Diagnose browser launch as a normal account
         if: always()
         run: |
-          ls -la /opt/motion-promo/browsers /opt/motion-promo/.browser-path || true
-          sudo -u alice env PATH=$PATH HOME=/home/alice node /home/alice/.claude/skills/motion-promo/scripts/doctor.mjs || true
-          sudo -u alice env PATH=$PATH HOME=/home/alice "$(cat /opt/motion-promo/.browser-path)" --headless=new --no-sandbox --disable-gpu --dump-dom about:blank 2>&1 | tail -15 || true
+          echo "--- env vars an inherited sudo session passes to alice (names + tmp/xdg values)"
+          sudo -u alice env | cut -d= -f1 | sort | tr '\n' ' '; echo
+          sudo -u alice env | grep -E '^(TMPDIR|TEMP|TMP|XDG_[A-Z_]*)=' || echo "(no TMP/XDG vars)"
+          echo "--- inherited env";  sudo -u alice env HOME=/home/alice "$(cat /opt/motion-promo/.browser-path)" --headless=new --no-sandbox --disable-gpu --dump-dom about:blank 2>&1 | tail -3 || true
+          echo "--- clean env";      sudo -u alice env -i HOME=/home/alice USER=alice LOGNAME=alice PATH=/usr/bin:/bin "$(cat /opt/motion-promo/.browser-path)" --headless=new --no-sandbox --disable-gpu --dump-dom about:blank 2>&1 | tail -3 || true
       - name: Each account has a working copy and renders a still
         run: |
           set -e
@@ -57,7 +59,9 @@ jobs:
             h=$(getent passwd "$u" | cut -d: -f6)
             for b in .claude .agents; do sudo test -f "$h/$b/skills/motion-promo/SKILL.md"; done
             sudo test -L "$h/.claude/skills/motion-promo/scripts/node_modules"
-            if [ "$u" = root ]; then run="sudo env PATH=$PATH HOME=$h"; else run="sudo -u $u env PATH=$PATH HOME=$h"; fi
+            # clean login-style environment, as a real session for that account would have
+            clean="env -i HOME=$h USER=$u LOGNAME=$u SHELL=/bin/bash PATH=$PATH"
+            if [ "$u" = root ]; then run="sudo $clean"; else run="sudo -u $u $clean"; fi
             $run bash -c "cd $h && node $h/.claude/skills/motion-promo/scripts/init.mjs $h/promo-test && node $h/.claude/skills/motion-promo/scripts/render.mjs $h/promo-test --stills 1,8 --quiet"
             sudo test -f "$h/promo-test/stills/contact-sheet.png"
             [ "$(sudo stat -c %U "$h/.claude/skills/motion-promo/SKILL.md")" = "$u" ]
@@ -67,7 +71,7 @@ jobs:
         run: |
           sudo useradd -m -s /bin/bash carol
           sudo -u carol test -f /home/carol/.claude/skills/motion-promo/SKILL.md
-          sudo -u carol env PATH=$PATH HOME=/home/carol node /home/carol/.claude/skills/motion-promo/scripts/doctor.mjs
+          sudo -u carol env -i HOME=/home/carol USER=carol LOGNAME=carol PATH=$PATH node /home/carol/.claude/skills/motion-promo/scripts/doctor.mjs
       - name: Full test suite on Linux
         run: |
           sudo chown -R "$(id -u)" /opt/motion-promo
