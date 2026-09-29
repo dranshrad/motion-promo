@@ -176,7 +176,23 @@ export const BROWSER_ARGS = [
   '--disable-gpu',
   ...(process.env.MOTION_PROMO_BROWSER_ARGS ? process.env.MOTION_PROMO_BROWSER_ARGS.split(/\s+/).filter(Boolean) : []),
 ];
+// Drop inherited temp/XDG paths this account cannot write (cron, systemd, `sudo -u` often pass
+// another account's). Chromium otherwise fails with "Failed to create headless user data
+// directory container".
+function sanitizeInheritedEnv() {
+  const dropped = [];
+  for (const k of ['TMPDIR', 'TMP', 'TEMP', 'XDG_RUNTIME_DIR', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME']) {
+    const v = process.env[k];
+    if (!v) continue;
+    try { fs.accessSync(v, fs.constants.W_OK); } catch { delete process.env[k]; dropped.push(k); }
+  }
+  if (dropped.length && !process.env.MOTION_PROMO_QUIET_ENV) {
+    process.stderr.write(`note: ignoring ${dropped.join(', ')} (not writable by this account)\n`);
+    process.env.MOTION_PROMO_QUIET_ENV = '1';
+  }
+}
 export async function launchBrowser() {
+  sanitizeInheritedEnv();
   const pw = loadPlaywright();
   const candidates = findBrowsers(pw);
   if (!candidates.length) throw new UserError('no Chromium-family browser found.', { fix: BROWSER_FIX, code: 2 });

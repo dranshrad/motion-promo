@@ -44,14 +44,11 @@ jobs:
           sudo useradd -m -s /bin/bash bob
       - name: Install for every user (the documented command)
         run: sudo env "PATH=$PATH" bash install.sh --all-users --with-chromium --with-deps
-      - name: Diagnose browser launch as a normal account
-        if: always()
+      - name: A stale inherited environment (cron / systemd / sudo -u) still works
         run: |
-          echo "--- env vars an inherited sudo session passes to alice (names + tmp/xdg values)"
-          sudo -u alice env | cut -d= -f1 | sort | tr '\n' ' '; echo
-          sudo -u alice env | grep -E '^(TMPDIR|TEMP|TMP|XDG_[A-Z_]*)=' || echo "(no TMP/XDG vars)"
-          echo "--- inherited env";  sudo -u alice env HOME=/home/alice "$(cat /opt/motion-promo/.browser-path)" --headless=new --no-sandbox --disable-gpu --dump-dom about:blank 2>&1 | tail -3 || true
-          echo "--- clean env";      sudo -u alice env -i HOME=/home/alice USER=alice LOGNAME=alice PATH=/usr/bin:/bin "$(cat /opt/motion-promo/.browser-path)" --headless=new --no-sandbox --disable-gpu --dump-dom about:blank 2>&1 | tail -3 || true
+          # sudo here passes runner's XDG_CONFIG_HOME / XDG_RUNTIME_DIR, which alice cannot write
+          sudo -u alice env | grep -E '^XDG_(CONFIG_HOME|RUNTIME_DIR)=' || true
+          sudo -u alice env HOME=/home/alice node /home/alice/.claude/skills/motion-promo/scripts/doctor.mjs
       - name: Each account has a working copy and renders a still
         run: |
           set -e

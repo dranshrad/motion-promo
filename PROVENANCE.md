@@ -25,6 +25,6 @@ All files in this directory are released under the MIT License (see `LICENSE`).
 After the clean-room build, the commissioning side made changes that are unrelated to any other
 implementation:
 - `install-all-users.sh` and the `--all-users` switch in `install.sh`
-- the shared-browser lookup (`.browser-path`) in `scripts/lib/common.mjs`
+- browser handling in `scripts/lib/common.mjs`: the shared-browser lookup (`.browser-path`), falling back to the next browser when one fails to launch, and ignoring unwritable inherited temp/XDG paths
 - `README.md` and the CI workflow
 - small wording edits
