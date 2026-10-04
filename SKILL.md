@@ -37,7 +37,7 @@ Requirements: Node ≥ 18, ffmpeg + ffprobe, Chrome/Chromium. Check with `node S
    `node SKILL_DIR/scripts/fetch.mjs --url <URL> --out <project>/assets/fetched`
    This writes images, `screenshot-desktop.png` / `screenshot-mobile.png`, `manifest.json`
    (provenance), `facts.txt` (title, headings, text with numbers) and `brand.json` (colour, font and
-   logo hints). Read `facts.txt`; confirm colours, font and logo with the user.
+   logo hints). Read `facts.txt`. Confirm colours, font and logo with the user.
 3. **Storyboard.** 4–7 scenes, one idea each: hook (title) → proof (device / compare / mosaic) →
    benefits (features) → optional stat or quote (only with a source) → CTA. Hook in the first second.
    Say the storyboard back to the user in one line per scene before building.

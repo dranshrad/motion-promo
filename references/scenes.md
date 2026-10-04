@@ -7,7 +7,7 @@ window.PROMO_CONFIG = { format: '4:5', brand: {…}, colors: {…}, font: {…},
 ```
 
 It is a `.js` file (not JSON) because `fetch()` of local JSON fails on `file://` in Chrome.
-Image and font paths are **relative to the config file**; write plain paths (spaces, `#`, `%`
+Image and font paths are **relative to the config file**. Write plain paths (spaces, `#`, `%`
 and non-ASCII are fine — do not URL-encode). Absolute paths and `https://` URLs also work.
 
 ## Copy markup (every text field)
